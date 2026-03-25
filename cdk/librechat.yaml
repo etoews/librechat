@@ -1,0 +1,12 @@
+version: 1.1.5
+cache: true
+
+endpoints:
+  bedrock:
+    availableRegions:
+      - us-east-1        # Must match deployment region; update if deploying elsewhere
+    models:
+      default:
+        - "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      fetch: false
+      userIdQuery: false
