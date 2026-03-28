@@ -1,12 +1,21 @@
-version: 1.1.5
+version: 1.3.6
 cache: true
 
 endpoints:
   bedrock:
     availableRegions:
-      - us-east-1        # Must match deployment region; update if deploying elsewhere
+      - ap-southeast-2
     models:
-      default:
-        - "anthropic.claude-3-5-sonnet-20241022-v2:0"
-      fetch: false
-      userIdQuery: false
+      - "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+
+modelSpecs:
+  enforce: true
+  prioritize: true
+  list:
+    - name: "claude-3-5-sonnet-v2"
+      label: "Claude 3.5 Sonnet v2"
+      default: true
+      preset:
+        endpoint: "bedrock"
+        model: "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        promptCache: false

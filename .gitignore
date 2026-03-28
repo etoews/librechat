@@ -1,0 +1,11 @@
+# CDK build artifacts
+cdk/cdk.out/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# pytest
+.pytest_cache/

@@ -22,7 +22,7 @@ class DatabaseStack(Stack):
             generate_secret_string=secretsmanager.SecretStringGenerator(
                 secret_string_template='{"username": "librechat"}',
                 generate_string_key="password",
-                exclude_characters='"@/\\:,',
+                exclude_characters='"@/\\:,+!#$&\'()*;=?[]{}%^ `|<>',
                 password_length=32,
             ),
         )

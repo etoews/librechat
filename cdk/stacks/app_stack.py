@@ -64,13 +64,17 @@ class AppStack(Stack):
         task_role.add_to_policy(iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
-            resources=["arn:aws:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0"],
+            resources=[
+                "arn:aws:bedrock:*::foundation-model/*",
+                "arn:aws:bedrock:*:*:inference-profile/*",
+            ],
         ))
 
         # --- Docker Image ---
         image_asset = ecr_assets.DockerImageAsset(
             self, "LibreChatImage",
             directory=os.path.join(os.path.dirname(__file__), ".."),  # cdk/ dir has Dockerfile
+            platform=ecr_assets.Platform.LINUX_AMD64,
         )
 
         # --- ECS Cluster ---
@@ -91,18 +95,28 @@ class AppStack(Stack):
         # Format: mongodb://user:pass@host:27017/librechat?replicaSet=rs0&...
         mongo_uri_suffix = (
             f"@{docdb_cluster.cluster_endpoint.hostname}:27017"
-            "/librechat?replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false"
+            "/librechat?replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false&authSource=admin"
         )
 
-        container = task_def.add_container(
+        task_def.add_container(
             "LibreChat",
             image=ecs.ContainerImage.from_docker_image_asset(image_asset),
+            # Override entrypoint to assemble MONGO_URI from individual secret env vars
+            # before handing off to the app's npm start script
+            entry_point=["/bin/sh", "-c"],
+            command=[
+                'export ENCODED_PASSWORD=$(node -e "process.stdout.write(encodeURIComponent(process.env.DOCDB_PASSWORD))") && '
+                'export MONGO_URI="mongodb://${DOCDB_USERNAME}:${ENCODED_PASSWORD}${MONGO_URI_SUFFIX}" && '
+                'npm run backend'
+            ],
             environment={
                 "NODE_ENV": "production",
                 "HOST": "0.0.0.0",
                 "PORT": "3080",
                 "MONGO_URI_SUFFIX": mongo_uri_suffix,
-                "ALLOW_REGISTRATION": "true",
+                "ALLOW_REGISTRATION": "false",
+                "AWS_REGION": "ap-southeast-2",
+                "BEDROCK_AWS_DEFAULT_REGION": "ap-southeast-2",
             },
             secrets={
                 "DOCDB_USERNAME": ecs.Secret.from_secrets_manager(docdb_secret, "username"),
@@ -115,12 +129,6 @@ class AppStack(Stack):
             logging=ecs.LogDrivers.aws_logs(stream_prefix="librechat", log_group=log_group),
             port_mappings=[ecs.PortMapping(container_port=3080)],
         )
-
-        # Assemble MONGO_URI at container start from individual credential env vars
-        container.command = [
-            "/bin/sh", "-c",
-            'export MONGO_URI="mongodb://${DOCDB_USERNAME}:${DOCDB_PASSWORD}${MONGO_URI_SUFFIX}" && node /app/backend/server/index.js'
-        ]
 
         # --- ALB ---
         alb = elbv2.ApplicationLoadBalancer(
