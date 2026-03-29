@@ -9,3 +9,6 @@ __pycache__/
 
 # pytest
 .pytest_cache/
+
+# Claude Code
+.claude/
